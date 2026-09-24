@@ -1,0 +1,24 @@
+# Files excluded from the archive published to the Comfy Registry.
+# Uses .gitignore syntax. The packer normally ships only git-tracked files,
+# so this mainly guards the "git unavailable -> zip everything" fallback and
+# keeps dev-only files out if they are ever committed.
+
+# Python / tooling caches
+__pycache__/
+*.pyc
+*.pyo
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Editor / assistant workspace files
+.vscode/
+.idea/
+*.code-workspace
+
+# Repo automation and dev-only files (not needed at runtime)
+.github/
+tests/
+
+# Build artifacts
+*.zip

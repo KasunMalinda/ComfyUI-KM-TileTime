@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# Registry publish artifact (created by `comfy node pack` / `comfy node publish`)
+node.zip
+*.zip
