@@ -323,12 +323,17 @@ def _span_text(values):
     return f"{lo}" if lo == hi else f"{lo}-{hi}"
 
 
+def _plural(n, word):
+    return word if n == 1 else word + "s"
+
+
 def describe(plan):
     ox = _span_text(_overlaps(plan.xs, plan.tile_w))
     oy = _span_text(_overlaps(plan.ys, plan.tile_h))
     lines = [
         f"Source {plan.src_w}x{plan.src_h}, {plan.n_frames}f, {plan.channels}ch",
-        f"Grid {plan.cols} cols x {plan.rows} rows = {plan.n_tiles} tiles, "
+        f"Grid {plan.cols} {_plural(plan.cols, 'col')} x {plan.rows} {_plural(plan.rows, 'row')} "
+        f"= {plan.n_tiles} {_plural(plan.n_tiles, 'tile')}, "
         f"{plan.tile_w}x{plan.tile_h} each (overlap {ox}/{oy} px)",
     ]
     if plan.n_chunks == 1:

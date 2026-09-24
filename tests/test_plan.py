@@ -95,3 +95,15 @@ def test_describe_lists_layout_and_adjustments():
         "Output 1920x1080 at 1x (x2 model: 3840x2160)",
         "Adjustments: chunk_frames 80 -> 77 (4k+1)",
     ]
+
+
+def test_describe_uses_singular_words_for_one_tile():
+    params = SplitParams(rows=1, cols=1, multiple_of=1)
+    text = describe(make_plan(10, 64, 64, 3, params))
+    assert text.splitlines() == [
+        "Source 64x64, 10f, 3ch",
+        "Grid 1 col x 1 row = 1 tile, 64x64 each (overlap 0/0 px)",
+        "Chunks 1 x 10f (whole clip), frame rule none",
+        "Items 1 through the branch",
+        "Output 64x64 at 1x (x2 model: 128x128)",
+    ]

@@ -1,7 +1,7 @@
 """Info panel text for the Split node, built from plan.py so it always
 matches what a run produces."""
 
-from .plan import SplitParams, describe, make_plan, round_down, snap_chunk_frames
+from .plan import SplitParams, _plural, describe, make_plan, round_down, snap_chunk_frames
 
 
 def _parse_shape(shape):
@@ -27,7 +27,11 @@ def _unmeasured_text(params):
         th = max(m, round_down(params.target_height, m))
         lines.append(f"Tiles up to {tw}x{th} (fewer or smaller if the source is smaller)")
     else:
-        lines.append(f"Grid {params.cols} cols x {params.rows} rows = {params.rows * params.cols} tiles")
+        n_tiles = params.rows * params.cols
+        lines.append(
+            f"Grid {params.cols} {_plural(params.cols, 'col')} x {params.rows} {_plural(params.rows, 'row')} "
+            f"= {n_tiles} {_plural(n_tiles, 'tile')}"
+        )
     length = snap_chunk_frames(params.chunk_frames, params.frame_rule, notes)
     if length:
         overlap = min(params.chunk_overlap, length - 1)
