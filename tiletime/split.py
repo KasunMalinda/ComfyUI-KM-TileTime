@@ -5,14 +5,18 @@ import torch
 
 def pad_source(images, plan):
     """Replicate the last frame, bottom row and right column up to the padded size."""
-    x = images
-    if plan.pad_t:
-        x = torch.cat([x, x[-1:].expand(plan.pad_t, -1, -1, -1)], dim=0)
-    if plan.pad_h:
-        x = torch.cat([x, x[:, -1:].expand(-1, plan.pad_h, -1, -1)], dim=1)
+    if not (plan.pad_t or plan.pad_h or plan.pad_w):
+        return images
+    n, h, w, c = images.shape
+    out = images.new_empty(n + plan.pad_t, h + plan.pad_h, w + plan.pad_w, c)
+    out[:n, :h, :w] = images
     if plan.pad_w:
-        x = torch.cat([x, x[:, :, -1:].expand(-1, -1, plan.pad_w, -1)], dim=2)
-    return x
+        out[:n, :h, w:] = images[:, :, -1:].expand(-1, -1, plan.pad_w, -1)
+    if plan.pad_h:
+        out[:n, h:, :] = out[:n, h - 1:h, :].expand(-1, plan.pad_h, -1, -1)
+    if plan.pad_t:
+        out[n:, :, :] = out[n - 1:n, :, :].expand(plan.pad_t, -1, -1, -1)
+    return out
 
 
 def split_items(images, plan):

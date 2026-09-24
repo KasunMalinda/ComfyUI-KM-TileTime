@@ -9,6 +9,12 @@ def _parse_shape(shape):
         n, h, w, c = (int(v) for v in shape)
     except (TypeError, ValueError):
         raise ValueError(f"shape must be [frames, height, width, channels], got {shape!r}") from None
+    limits = {"frames": (n, 1_000_000), "height": (h, 65536), "width": (w, 65536), "channels": (c, 16)}
+    for name, (value, limit) in limits.items():
+        if value < 1 or value > limit:
+            raise ValueError(
+                f"shape must be [frames, height, width, channels] with 1 <= {name} <= {limit}, got {shape!r}"
+            )
     return n, h, w, c
 
 
@@ -24,7 +30,8 @@ def _unmeasured_text(params):
         lines.append(f"Grid {params.cols} cols x {params.rows} rows = {params.rows * params.cols} tiles")
     length = snap_chunk_frames(params.chunk_frames, params.frame_rule, notes)
     if length:
-        lines.append(f"Chunks of {length}f (overlap {params.chunk_overlap}), frame rule {params.frame_rule}")
+        overlap = min(params.chunk_overlap, length - 1)
+        lines.append(f"Chunks of {length}f (overlap {overlap}), frame rule {params.frame_rule}")
     else:
         lines.append(f"Chunks off (whole clip), frame rule {params.frame_rule}")
     if notes:

@@ -69,6 +69,20 @@ def test_make_plan_rejects_empty_source():
         make_plan(0, 10, 10, 3, SplitParams())
 
 
+@pytest.mark.parametrize("field,value", [
+    ("rows", 17),
+    ("cols", 17),
+    ("target_width", 8193),
+    ("target_height", 8193),
+    ("chunk_frames", 10001),
+    ("chunk_overlap", 1001),
+    ("overlap", 4097),
+])
+def test_split_params_rejects_values_above_widget_maxima(field, value):
+    with pytest.raises(ValueError, match=field):
+        SplitParams(**{field: value})
+
+
 def test_describe_lists_layout_and_adjustments():
     params = SplitParams(tile_mode="target size", target_width=1280, target_height=720,
                          chunk_frames=80, chunk_overlap=8, frame_rule="4k+1")

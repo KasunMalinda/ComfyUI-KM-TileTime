@@ -108,6 +108,13 @@ class SplitParams:
         for name in ("overlap", "chunk_frames", "chunk_overlap"):
             if getattr(self, name) < 0:
                 raise ValueError(f"{name} must not be negative, got {getattr(self, name)}")
+        maxima = {
+            "rows": 16, "cols": 16, "target_width": 8192, "target_height": 8192,
+            "chunk_frames": 10000, "chunk_overlap": 1000, "overlap": 4096,
+        }
+        for name, limit in maxima.items():
+            if getattr(self, name) > limit:
+                raise ValueError(f"{name} must be at most {limit}, got {getattr(self, name)}")
 
     @classmethod
     def from_dict(cls, values):

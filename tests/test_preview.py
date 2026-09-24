@@ -21,6 +21,11 @@ def test_preview_unmeasured_target_mode():
     ]
 
 
+def test_preview_unmeasured_clamps_chunk_overlap_to_chunk_length():
+    text = preview_text(None, {"chunk_frames": 9, "chunk_overlap": 50})
+    assert "Chunks of 9f (overlap 8)" in text
+
+
 def test_preview_unmeasured_grid_chunking_off():
     text = preview_text(None, {"rows": 2, "cols": 3})
     assert text.splitlines() == [
@@ -32,5 +37,20 @@ def test_preview_unmeasured_grid_chunking_off():
 
 @pytest.mark.parametrize("shape", [[1, 2, 3], "abc", [1, "x", 3, 4]])
 def test_preview_rejects_bad_shape(shape):
+    with pytest.raises(ValueError, match="shape must be"):
+        preview_text(shape, {})
+
+
+@pytest.mark.parametrize("shape", [
+    [0, 10, 10, 3],
+    [10, 0, 10, 3],
+    [10, 10, 0, 3],
+    [10, 10, 10, 0],
+    [1_000_001, 10, 10, 3],
+    [10, 65537, 10, 3],
+    [10, 10, 65537, 3],
+    [10, 10, 10, 17],
+])
+def test_preview_rejects_shape_outside_limits(shape):
     with pytest.raises(ValueError, match="shape must be"):
         preview_text(shape, {})

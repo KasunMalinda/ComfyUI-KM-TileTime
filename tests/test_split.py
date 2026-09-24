@@ -28,12 +28,13 @@ def test_items_are_views_without_padding():
 
 
 def test_padding_replicates_edges():
-    video = random_video(70, 50, 50)
+    video = random_video(70, 50, 40)
     params = SplitParams(rows=1, cols=1, multiple_of=16, chunk_frames=81, frame_rule="4k+1")
     _, (item,) = split(video, params)
-    assert item.shape == (73, 64, 64, 3)
-    assert torch.equal(item[72], item[69]) and torch.equal(item[69, :50, :50], video[69])  # repeated last frame
-    assert torch.equal(item[:70, :50, 63], video[:, :, 49])  # replicated right column
+    assert item.shape == (73, 64, 48, 3)
+    assert torch.equal(item[72], item[69]) and torch.equal(item[69, :50, :40], video[69])  # repeated last frame
+    assert torch.equal(item[:70, :50, 47], video[:, :, 39])  # replicated right column
+    assert torch.equal(item[:70, 63, :40], video[:, 49, :])  # replicated bottom row
 
 
 def test_split_rejects_mismatched_images():
