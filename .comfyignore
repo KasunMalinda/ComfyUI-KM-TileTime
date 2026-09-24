@@ -19,6 +19,7 @@ __pycache__/
 # Repo automation and dev-only files (not needed at runtime)
 .github/
 tests/
+docs/
 
 # Build artifacts
 *.zip
