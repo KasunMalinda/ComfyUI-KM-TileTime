@@ -1,0 +1,29 @@
+"""Cut a video tensor into the items described by a TilePlan."""
+
+import torch
+
+
+def pad_source(images, plan):
+    """Replicate the last frame, bottom row and right column up to the padded size."""
+    x = images
+    if plan.pad_t:
+        x = torch.cat([x, x[-1:].expand(plan.pad_t, -1, -1, -1)], dim=0)
+    if plan.pad_h:
+        x = torch.cat([x, x[:, -1:].expand(-1, plan.pad_h, -1, -1)], dim=1)
+    if plan.pad_w:
+        x = torch.cat([x, x[:, :, -1:].expand(-1, -1, plan.pad_w, -1)], dim=2)
+    return x
+
+
+def split_items(images, plan):
+    """Return the item list in tile-major order. Items are views when no padding is needed."""
+    expected = (plan.n_frames, plan.src_h, plan.src_w, plan.channels)
+    if tuple(images.shape) != expected:
+        raise ValueError(f"images shape {tuple(images.shape)} does not match the plan {expected}")
+    src = pad_source(images, plan)
+    items = []
+    for y in plan.ys:
+        for x in plan.xs:
+            for t in plan.chunk_starts:
+                items.append(src[t:t + plan.chunk_len, y:y + plan.tile_h, x:x + plan.tile_w, :])
+    return items
