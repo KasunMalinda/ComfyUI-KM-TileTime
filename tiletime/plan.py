@@ -190,3 +190,151 @@ def target_axis(size, target, overlap_mode, overlap, m, axis, notes):
             notes.append(f"{axis} overlap capped at {int(o)} px")
     count = int(math.ceil((size - o) / (tile - o) - 1e-9))
     return _finish_axis(size, tile, count, m, axis, notes)
+
+
+# ---------------------------------------------------------------------------
+# temporal chunks
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ChunkLayout:
+    length: int
+    starts: tuple
+    pad: int
+
+
+def chunk_axis(n_frames, chunk_frames, chunk_overlap, rule, notes):
+    length = snap_chunk_frames(chunk_frames, rule, notes)
+    if length == 0 or length >= n_frames:
+        total = snap_frames_up(n_frames, rule)
+        if total != n_frames:
+            notes.append(f"clip padded {n_frames} -> {total} frames ({rule}), removed again by Merge")
+        return ChunkLayout(total, (0,), total - n_frames)
+    o = min(chunk_overlap, length - 1)
+    count = int(math.ceil((n_frames - o) / (length - o)))
+    return ChunkLayout(length, even_starts(n_frames, length, count), 0)
+
+
+# ---------------------------------------------------------------------------
+# plan
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TilePlan:
+    n_frames: int
+    src_h: int
+    src_w: int
+    channels: int
+    pad_t: int
+    pad_h: int
+    pad_w: int
+    tile_h: int
+    tile_w: int
+    ys: tuple
+    xs: tuple
+    chunk_len: int
+    chunk_starts: tuple
+    frame_rule: str = "none"
+    notes: tuple = ()
+    order: str = "tile-major"
+    version: int = PLAN_VERSION
+
+    @property
+    def rows(self):
+        return len(self.ys)
+
+    @property
+    def cols(self):
+        return len(self.xs)
+
+    @property
+    def n_tiles(self):
+        return self.rows * self.cols
+
+    @property
+    def n_chunks(self):
+        return len(self.chunk_starts)
+
+    @property
+    def n_items(self):
+        return self.n_tiles * self.n_chunks
+
+    @property
+    def padded_h(self):
+        return self.src_h + self.pad_h
+
+    @property
+    def padded_w(self):
+        return self.src_w + self.pad_w
+
+    def item_coords(self, index):
+        """Item index -> (row, col, chunk). Order is tile-major, tiles row by row."""
+        tile, chunk = divmod(index, self.n_chunks)
+        row, col = divmod(tile, self.cols)
+        return row, col, chunk
+
+
+def make_plan(n_frames, height, width, channels, params):
+    if min(n_frames, height, width, channels) < 1:
+        raise ValueError(
+            f"source must have at least 1 frame, pixel and channel, got "
+            f"{n_frames} frames, {width}x{height}, {channels} channels"
+        )
+    notes = []
+    m = params.multiple_of
+    if params.tile_mode == "grid":
+        ay = grid_axis(height, params.rows, params.overlap_mode, params.overlap, m, "height", notes)
+        ax = grid_axis(width, params.cols, params.overlap_mode, params.overlap, m, "width", notes)
+    else:
+        ay = target_axis(height, params.target_height, params.overlap_mode, params.overlap, m, "height", notes)
+        ax = target_axis(width, params.target_width, params.overlap_mode, params.overlap, m, "width", notes)
+    ch = chunk_axis(n_frames, params.chunk_frames, params.chunk_overlap, params.frame_rule, notes)
+    if ay.pad or ax.pad:
+        notes.append(f"source padded to {width + ax.pad}x{height + ay.pad} (edge pixels), removed again by Merge")
+    return TilePlan(
+        n_frames=n_frames, src_h=height, src_w=width, channels=channels,
+        pad_t=ch.pad, pad_h=ay.pad, pad_w=ax.pad,
+        tile_h=ay.tile, tile_w=ax.tile, ys=ay.starts, xs=ax.starts,
+        chunk_len=ch.length, chunk_starts=ch.starts,
+        frame_rule=params.frame_rule,
+        notes=tuple(dict.fromkeys(notes)),  # drop duplicates, keep order
+    )
+
+
+# ---------------------------------------------------------------------------
+# description (Split's info output and the node's info panel)
+# ---------------------------------------------------------------------------
+
+def _overlaps(starts, length):
+    return [starts[i] + length - starts[i + 1] for i in range(len(starts) - 1)]
+
+
+def _span_text(values):
+    if not values:
+        return "0"
+    lo, hi = min(values), max(values)
+    return f"{lo}" if lo == hi else f"{lo}-{hi}"
+
+
+def describe(plan):
+    ox = _span_text(_overlaps(plan.xs, plan.tile_w))
+    oy = _span_text(_overlaps(plan.ys, plan.tile_h))
+    lines = [
+        f"Source {plan.src_w}x{plan.src_h}, {plan.n_frames}f, {plan.channels}ch",
+        f"Grid {plan.cols} cols x {plan.rows} rows = {plan.n_tiles} tiles, "
+        f"{plan.tile_w}x{plan.tile_h} each (overlap {ox}/{oy} px)",
+    ]
+    if plan.n_chunks == 1:
+        lines.append(f"Chunks 1 x {plan.chunk_len}f (whole clip), frame rule {plan.frame_rule}")
+    else:
+        ot = _span_text(_overlaps(plan.chunk_starts, plan.chunk_len))
+        lines.append(
+            f"Chunks {plan.n_chunks} x {plan.chunk_len}f (overlap {ot}), frame rule {plan.frame_rule}"
+        )
+    lines.append(f"Items {plan.n_items} through the branch")
+    lines.append(
+        f"Output {plan.src_w}x{plan.src_h} at 1x (x2 model: {plan.src_w * 2}x{plan.src_h * 2})"
+    )
+    if plan.notes:
+        lines.append("Adjustments: " + "; ".join(plan.notes))
+    return "\n".join(lines)
