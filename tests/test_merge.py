@@ -113,3 +113,46 @@ def test_missing_plan_and_bad_version():
         merge_items(items, None)
     with pytest.raises(ValueError, match="version 99 is not supported"):
         merge_items(items, replace(plan, version=99))
+
+
+# --- scaled placement without resampling -------------------------------------
+
+def test_scaled_mode_keeps_tile_pixels_unresampled():
+    video = random_video(3, 64, 96)
+    plan = make_plan(*video.shape, SplitParams(rows=2, cols=2, multiple_of=16))
+    th, tw = plan.tile_h * 3 // 2, plan.tile_w * 3 // 2
+    items = [random_video(3, th, tw, seed=i) for i in range(plan.n_items)]  # arbitrary 1.5x content
+    out = merge_items(items, plan)
+    ys = [(2 * y * th + plan.tile_h) // (2 * plan.tile_h) for y in plan.ys]
+    xs = [(2 * x * tw + plan.tile_w) // (2 * plan.tile_w) for x in plan.xs]
+    # Regions covered by only one tile hold that tile's pixels bit for bit.
+    assert torch.equal(out[:, : ys[1], : xs[1]], items[0][:, : ys[1], : xs[1]])
+    e0y, e0x = ys[0] + th, xs[0] + tw
+    assert torch.equal(out[:, e0y:, e0x:], items[3][:, e0y - ys[1]:, e0x - xs[1]:])
+    assert out.shape == (3, 96, 144, 3)
+
+
+@pytest.mark.parametrize("returned,tile", [(3, 2), (5, 4), (7, 16), (1, 3), (33, 22)])
+@pytest.mark.parametrize("size,count,overlap", [(100, 3, 10), (97, 4, 3), (64, 2, 0), (1000, 7, 50)])
+def test_scaled_placement_never_needs_gap_fill_or_crop(returned, tile, size, count, overlap):
+    from tiletime.merge import _place, _scaled_pos
+    from tiletime.plan import even_starts
+
+    tile_px = max(tile, (size + (count - 1) * overlap) // count + 1)
+    starts = even_starts(size, tile_px, count)
+    canvas = _scaled_pos(starts[-1] + tile_px, returned, tile_px)
+    spans, crops, fills = _place(starts, returned, tile_px, canvas)
+    assert not any(crops) and not any(fills)
+    assert spans[0][0] == 0 and spans[-1][1] == canvas
+    assert all(spans[i + 1][0] <= spans[i][1] for i in range(len(spans) - 1))
+
+
+def test_place_guard_fills_gaps_and_crops_overrun():
+    from tiletime.merge import _fit, _place
+
+    spans, crops, fills = _place([0, 10], 4, 8, 12)  # starts at 0 and 5, pieces 4 wide
+    assert spans == [(0, 5), (5, 12)] and crops == [0, 0] and fills == [1, 3]
+    spans, crops, fills = _place([0, 20], 30, 20, 59)  # second piece runs 1 past the canvas
+    assert spans == [(0, 30), (30, 59)] and crops == [0, 1] and fills == [0, 0]
+    piece = torch.arange(4.0).view(1, 1, 4, 1)
+    assert _fit(piece, 2, 1, 2).flatten().tolist() == [0, 1, 2, 2, 2]
