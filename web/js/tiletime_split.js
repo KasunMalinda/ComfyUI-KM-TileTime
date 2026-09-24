@@ -24,6 +24,19 @@ function widget(node, name) {
   return node.widgets?.find((w) => w.name === name);
 }
 
+// Real input widgets: excludes transient/UI widgets (image previews, buttons,
+// anything marked non-serializing) that can appear or vanish between runs.
+function isInputWidget(w) {
+  return (
+    w &&
+    w.name &&
+    !String(w.name).startsWith("$$") &&
+    w.type !== "button" &&
+    w.serialize !== false &&
+    w.options?.serialize !== false
+  );
+}
+
 // Small stable string hash (djb2) for the upstream signature.
 function hashString(s) {
   let h = 5381;
@@ -73,7 +86,7 @@ function graphSignature(node) {
   try {
     if (!node?.graph) return null;
     const parts = collectUpstreamNodes(node)
-      .map((n) => `${n.id}|${n.type}|${JSON.stringify((n.widgets ?? []).map((w) => w.value))}|${n.mode}`)
+      .map((n) => `${n.id}|${n.type}|${JSON.stringify((n.widgets ?? []).filter(isInputWidget).map((w) => [w.name, w.value]))}|${n.mode}`)
       .sort();
     return hashString(parts.join("\n"));
   } catch {
