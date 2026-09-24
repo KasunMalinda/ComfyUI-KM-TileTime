@@ -122,3 +122,71 @@ class SplitParams:
                 except (TypeError, ValueError):
                     raise ValueError(f"{f.name} has an invalid value: {values[f.name]!r}") from None
         return cls(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# spatial axis layout
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class AxisLayout:
+    tile: int
+    starts: tuple
+    pad: int
+
+
+def even_starts(size, tile, count):
+    """Evenly spaced starts: first at 0, last ending exactly at size."""
+    if count == 1:
+        return (0,)
+    span = size - tile
+    return tuple(int(round(i * span / (count - 1))) for i in range(count))
+
+
+def _finish_axis(size, tile, count, m, axis, notes):
+    if count > 1 and tile >= size:
+        notes.append(f"{axis}: one tile covers the source, using 1 tile instead of {count}")
+        count, tile = 1, round_up(size, m)
+    if count == 1:
+        return AxisLayout(tile, (0,), tile - size)
+    return AxisLayout(tile, even_starts(size, tile, count), 0)
+
+
+def grid_axis(size, count, overlap_mode, overlap, m, axis, notes):
+    if count == 1:
+        return _finish_axis(size, round_up(size, m), 1, m, axis, notes)
+    # With even spacing the overlap o between neighbours satisfies
+    # count * tile - (count - 1) * o = size. Solve for the tile that gives the
+    # requested overlap, then round up (the overlap only grows).
+    k = count - 1
+    if overlap_mode == "percent":
+        if overlap > MAX_OVERLAP_PERCENT:
+            notes.append(f"overlap capped at {MAX_OVERLAP_PERCENT:g}%")
+        p = min(overlap, MAX_OVERLAP_PERCENT) / 100.0
+        tile = size / (count - k * p)
+    else:
+        # o <= 0.49 * tile  <=>  o <= 0.49 * size / (count - 0.49 * k)
+        limit = MAX_OVERLAP_FRACTION * size / (count - MAX_OVERLAP_FRACTION * k)
+        o = float(overlap)
+        if o > limit:
+            notes.append(f"{axis} overlap capped at {int(limit)} px")
+            o = limit
+        tile = (size + k * o) / count
+    return _finish_axis(size, round_up(tile, m), count, m, axis, notes)
+
+
+def target_axis(size, target, overlap_mode, overlap, m, axis, notes):
+    tile = max(m, round_down(target, m))
+    if size <= tile:
+        return _finish_axis(size, round_up(size, m), 1, m, axis, notes)
+    if overlap_mode == "percent":
+        if overlap > MAX_OVERLAP_PERCENT:
+            notes.append(f"overlap capped at {MAX_OVERLAP_PERCENT:g}%")
+        o = tile * min(overlap, MAX_OVERLAP_PERCENT) / 100.0
+    else:
+        o = float(overlap)
+        if o > MAX_OVERLAP_FRACTION * tile:
+            o = MAX_OVERLAP_FRACTION * tile
+            notes.append(f"{axis} overlap capped at {int(o)} px")
+    count = int(math.ceil((size - o) / (tile - o) - 1e-9))
+    return _finish_axis(size, tile, count, m, axis, notes)
