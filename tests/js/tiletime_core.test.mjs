@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   CUSTOM,
+  LEGACY_FRAME_RULES,
   chain,
   collectUpstreamNodes,
   executionId,
@@ -11,6 +12,7 @@ import {
   hashString,
   isInputWidget,
   isStale,
+  migrateLegacyWidgetValues,
   nodeErrorLines,
   refreshPanel,
   wirePresets,
@@ -397,4 +399,62 @@ test("handleMeasureEvent: non-matching prompt_id does nothing", () => {
   const node = { kmMeasurePromptId: "p3" };
   const result = handleMeasureEvent([node], "execution_success", { prompt_id: "other" });
   assert.equal(result, null);
+});
+
+// ---------------------------------------------------------------------------
+// migrateLegacyWidgetValues
+// ---------------------------------------------------------------------------
+
+const CURRENT_PRESET_LABEL = "Wan 2.1/2.2 VACE (16, 4n+1, 1280x720, 81/8)";
+const LEGACY_PRESET_LABEL = "Wan 2.1/2.2 VACE (16, 4k+1, 1280x720, 81/8)";
+
+function widgetWithOptions(name, value, options) {
+  return { name, value, options };
+}
+
+for (const [legacy, current] of Object.entries(LEGACY_FRAME_RULES)) {
+  test(`migrateLegacyWidgetValues: migrates legacy frame_rule ${legacy}`, () => {
+    const frameRule = makeStaticWidget("frame_rule", legacy);
+    const node = { widgets: [frameRule] };
+    const changed = migrateLegacyWidgetValues(node);
+    assert.equal(frameRule.value, current);
+    assert.equal(changed, true);
+  });
+}
+
+test("migrateLegacyWidgetValues: migrates a legacy preset label to the new label", () => {
+  const preset = widgetWithOptions("preset", LEGACY_PRESET_LABEL, { values: [CUSTOM, CURRENT_PRESET_LABEL] });
+  const node = { widgets: [preset] };
+  const changed = migrateLegacyWidgetValues(node);
+  assert.equal(preset.value, CURRENT_PRESET_LABEL);
+  assert.equal(changed, true);
+});
+
+test("migrateLegacyWidgetValues: an unknown old-looking preset label falls back to custom", () => {
+  const oldLabel = "Wan 2.1/2.2 VACE (16, 4k+1, 1280x720, 77/8)"; // chunk_frames no longer matches
+  const preset = widgetWithOptions("preset", oldLabel, { values: [CUSTOM, CURRENT_PRESET_LABEL] });
+  const node = { widgets: [preset] };
+  const changed = migrateLegacyWidgetValues(node);
+  assert.equal(preset.value, CUSTOM);
+  assert.equal(changed, true);
+});
+
+test("migrateLegacyWidgetValues: leaves custom and already-valid values untouched", () => {
+  const preset = widgetWithOptions("preset", CUSTOM, { values: [CUSTOM, CURRENT_PRESET_LABEL] });
+  const frameRule = makeStaticWidget("frame_rule", "4n+1");
+  const node = { widgets: [preset, frameRule] };
+  const changed = migrateLegacyWidgetValues(node);
+  assert.equal(preset.value, CUSTOM);
+  assert.equal(frameRule.value, "4n+1");
+  assert.equal(changed, false);
+
+  const preset2 = widgetWithOptions("preset", CURRENT_PRESET_LABEL, { values: [CUSTOM, CURRENT_PRESET_LABEL] });
+  const node2 = { widgets: [preset2] };
+  assert.equal(migrateLegacyWidgetValues(node2), false);
+  assert.equal(preset2.value, CURRENT_PRESET_LABEL);
+});
+
+test("migrateLegacyWidgetValues: returns false when nothing changes", () => {
+  const node = { widgets: [] };
+  assert.equal(migrateLegacyWidgetValues(node), false);
 });

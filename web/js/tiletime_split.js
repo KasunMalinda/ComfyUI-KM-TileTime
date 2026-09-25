@@ -6,6 +6,7 @@ import {
   executionId,
   graphSignature,
   handleMeasureEvent,
+  migrateLegacyWidgetValues,
   nodeErrorLines,
   refreshPanel,
   wirePresets,
@@ -122,6 +123,7 @@ app.registerExtension({
 
     // Saved workflows restore properties (the measured source) in configure.
     chain(nodeType.prototype, "onConfigure", function () {
+      if (migrateLegacyWidgetValues(this)) this.setDirtyCanvas?.(true, true);
       scheduleRefresh(this);
     });
 
