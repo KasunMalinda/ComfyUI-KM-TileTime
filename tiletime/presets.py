@@ -7,6 +7,8 @@ web/js/tiletime_split.js uses it to fill the widgets.
 
 from dataclasses import dataclass
 
+from .plan import LEGACY_FRAME_RULES
+
 CUSTOM = "custom"
 
 
@@ -50,6 +52,15 @@ PRESETS = (
     Preset("LTX-2 / 2.3 / 2.5", 32, "8n+1", 1280, 704, 121, 16),
     Preset("MiniMax H3", 32, "17n", 1280, 704, 136, 17),
 )
+
+
+def canonical_preset_label(label):
+    """Replace a legacy frame rule token inside a preset label; other labels unchanged."""
+    for legacy, current in LEGACY_FRAME_RULES.items():
+        needle = f", {legacy},"
+        if needle in label:
+            return label.replace(needle, f", {current},")
+    return label
 
 
 def preset_labels():

@@ -1,7 +1,10 @@
+import pytest
 import torch
 
 from helpers import random_video
 from tiletime.nodes import KMTileTimeMerge, KMTileTimeSplit
+from tiletime.plan import LEGACY_FRAME_RULES
+from tiletime.presets import CUSTOM, preset_labels
 
 
 def test_nodes_round_trip_and_ui_payload():
@@ -21,3 +24,32 @@ def test_split_input_types_publish_presets():
     labels, opts = spec["preset"]
     assert labels[0] == "custom" and set(opts["km_presets"]) == set(labels[1:])
     assert KMTileTimeSplit.OUTPUT_NODE is True
+
+
+# --- VALIDATE_INPUTS (API-format prompts skip the built-in combo check) ----
+
+def test_validate_inputs_accepts_current_values():
+    assert KMTileTimeSplit.VALIDATE_INPUTS(preset=CUSTOM, frame_rule="4n+1") is True
+
+
+@pytest.mark.parametrize("legacy", LEGACY_FRAME_RULES)
+def test_validate_inputs_accepts_legacy_frame_rules(legacy):
+    assert KMTileTimeSplit.VALIDATE_INPUTS(preset=CUSTOM, frame_rule=legacy) is True
+
+
+@pytest.mark.parametrize("legacy,current", LEGACY_FRAME_RULES.items())
+def test_validate_inputs_accepts_old_preset_labels(legacy, current):
+    old_label = next(label for label in preset_labels() if f", {current}," in label).replace(
+        f", {current},", f", {legacy},"
+    )
+    assert KMTileTimeSplit.VALIDATE_INPUTS(preset=old_label, frame_rule="none") is True
+
+
+def test_validate_inputs_rejects_unknown_frame_rule():
+    result = KMTileTimeSplit.VALIDATE_INPUTS(preset=CUSTOM, frame_rule="3k")
+    assert isinstance(result, str) and "3k" in result
+
+
+def test_validate_inputs_rejects_unknown_preset():
+    result = KMTileTimeSplit.VALIDATE_INPUTS(preset="not a real preset", frame_rule="none")
+    assert isinstance(result, str) and "not a real preset" in result
