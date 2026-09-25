@@ -181,6 +181,14 @@ test("graphSignature: a transient preview widget does not change it", () => {
   assert.equal(before2, after2);
 });
 
+test("graphSignature: rewiring changes it", () => {
+  const { split, graph } = buildBaseGraph();
+  const before = graphSignature(split);
+  graph.links[10] = { origin_id: 1, origin_slot: 1 };
+  const after = graphSignature(split);
+  assert.notEqual(before, after);
+});
+
 test("graphSignature: unconnected and downstream nodes do not affect it", () => {
   const { split, graph } = buildBaseGraph();
   const before = graphSignature(split);

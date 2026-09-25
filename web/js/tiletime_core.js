@@ -77,14 +77,34 @@ export function collectUpstreamNodes(node) {
   return result;
 }
 
-// Hash of class types, widget values and mode of every node upstream of this
-// Split, read straight from the live graph. Returns null on any failure
-// (graph not ready, unexpected shapes, and so on) so callers can fail soft.
+// "inputName->originId:originSlot" (or "inputName->none") for every input of
+// `n`, resolved against `graph`, sorted and joined so wiring changes are
+// reflected in the signature.
+function wiringOf(graph, n) {
+  return (n.inputs ?? [])
+    .map((input) => {
+      const linkId = input?.link;
+      if (linkId === null || linkId === undefined) return `${input.name}->none`;
+      const link = graph.links?.[linkId] ?? graph.getLink?.(linkId);
+      if (!link) return `${input.name}->none`;
+      return `${input.name}->${link.origin_id}:${link.origin_slot}`;
+    })
+    .sort()
+    .join(",");
+}
+
+// Hash of class types, widget values, mode and input wiring of every node
+// upstream of this Split (plus the Split node's own wiring), read straight
+// from the live graph. Returns null on any failure (graph not ready,
+// unexpected shapes, and so on) so callers can fail soft.
 export function graphSignature(node) {
   try {
     if (!node?.graph) return null;
-    const parts = collectUpstreamNodes(node)
-      .map((n) => `${n.id}|${n.type}|${JSON.stringify((n.widgets ?? []).filter(isInputWidget).map((w) => [w.name, w.value]))}|${n.mode}`)
+    const graph = node.graph;
+    const upstream = collectUpstreamNodes(node);
+    const parts = upstream
+      .map((n) => `${n.id}|${n.type}|${JSON.stringify((n.widgets ?? []).filter(isInputWidget).map((w) => [w.name, w.value]))}|${n.mode}|${wiringOf(graph, n)}`)
+      .concat([`${node.id}|${wiringOf(graph, node)}`])
       .sort();
     return hashString(parts.join("\n"));
   } catch {
