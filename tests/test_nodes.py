@@ -8,7 +8,7 @@ def test_nodes_round_trip_and_ui_payload():
     video = random_video(30, 40, 60)
     split = KMTileTimeSplit().split(
         video, preset="custom", tile_mode="grid", rows=2, cols=2, target_width=1280, target_height=720,
-        overlap_mode="percent", overlap=10.0, multiple_of="8", chunk_frames=17, chunk_overlap=4, frame_rule="8k+1",
+        overlap_mode="percent", overlap=10.0, multiple_of="8", chunk_frames=17, chunk_overlap=4, frame_rule="8n+1",
     )
     items, plan, info = split["result"]
     assert split["ui"] == {"km_source": [[30, 40, 60, 3]], "km_info": [info]}

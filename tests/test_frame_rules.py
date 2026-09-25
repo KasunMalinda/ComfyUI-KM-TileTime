@@ -7,9 +7,9 @@ from tiletime.plan import SplitParams, is_valid_frames, snap_chunk_frames, snap_
 
 @pytest.mark.parametrize("rule,valid,invalid", [
     ("none", [1, 2, 80], [0]),
-    ("4k+1", [1, 5, 77, 81], [2, 4, 80]),
-    ("8k+1", [1, 9, 121], [8, 120]),
-    ("17k", [17, 34, 136], [1, 16, 18, 135]),
+    ("4n+1", [1, 5, 77, 81], [2, 4, 80]),
+    ("8n+1", [1, 9, 121], [8, 120]),
+    ("17n", [17, 34, 136], [1, 16, 18, 135]),
 ])
 def test_is_valid_frames(rule, valid, invalid):
     assert all(is_valid_frames(n, rule) for n in valid)
@@ -17,11 +17,11 @@ def test_is_valid_frames(rule, valid, invalid):
 
 
 @pytest.mark.parametrize("rule,n,down,up", [
-    ("4k+1", 80, 77, 81),
-    ("4k+1", 70, 69, 73),
-    ("8k+1", 120, 113, 121),
-    ("17k", 140, 136, 153),
-    ("17k", 5, 17, 17),
+    ("4n+1", 80, 77, 81),
+    ("4n+1", 70, 69, 73),
+    ("8n+1", 120, 113, 121),
+    ("17n", 140, 136, 153),
+    ("17n", 5, 17, 17),
     ("none", 70, 70, 70),
 ])
 def test_snap(rule, n, down, up):
@@ -36,8 +36,8 @@ def test_unknown_rule_raises():
 
 def test_snap_chunk_frames_reports_change():
     notes = []
-    assert snap_chunk_frames(80, "4k+1", notes) == 77 and notes == ["chunk_frames 80 -> 77 (4k+1)"]
-    assert snap_chunk_frames(0, "4k+1", notes) == 0 and len(notes) == 1
+    assert snap_chunk_frames(80, "4n+1", notes) == 77 and notes == ["chunk_frames 80 -> 77 (4n+1)"]
+    assert snap_chunk_frames(0, "4n+1", notes) == 0 and len(notes) == 1
 
 
 # --- params ------------------------------------------------------------------

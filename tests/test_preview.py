@@ -5,19 +5,19 @@ from tiletime.preview import preview_text
 
 
 def test_preview_matches_split_info():
-    widgets = {"tile_mode": "grid", "rows": 3, "cols": 3, "multiple_of": "16", "chunk_frames": 81, "frame_rule": "4k+1"}
+    widgets = {"tile_mode": "grid", "rows": 3, "cols": 3, "multiple_of": "16", "chunk_frames": 81, "frame_rule": "4n+1"}
     expected = describe(make_plan(245, 2880, 4096, 3, SplitParams.from_dict(widgets)))
     assert preview_text([245, 2880, 4096, 3], widgets) == expected
 
 
 def test_preview_unmeasured_target_mode():
     text = preview_text(None, {"tile_mode": "target size", "target_width": 1290, "target_height": 720,
-                               "multiple_of": "16", "chunk_frames": 80, "frame_rule": "4k+1"})
+                               "multiple_of": "16", "chunk_frames": 80, "frame_rule": "4n+1"})
     assert text.splitlines() == [
         "Source not measured: press Measure to read the source",
         "Tiles up to 1280x720 (fewer or smaller if the source is smaller)",
-        "Chunks of 77f (overlap 8), frame rule 4k+1",
-        "Adjustments: chunk_frames 80 -> 77 (4k+1)",
+        "Chunks of 77f (overlap 8), frame rule 4n+1",
+        "Adjustments: chunk_frames 80 -> 77 (4n+1)",
     ]
 
 

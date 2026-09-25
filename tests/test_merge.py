@@ -16,8 +16,8 @@ ROUND_TRIP_CASES = [
     SplitParams(rows=3, cols=4, overlap_mode="pixels", overlap=6, multiple_of=8),
     SplitParams(rows=1, cols=1, multiple_of=16),  # padded
     SplitParams(tile_mode="target size", target_width=48, target_height=32, multiple_of=16, chunk_frames=9, chunk_overlap=3),
-    SplitParams(tile_mode="target size", target_width=64, target_height=64, chunk_frames=13, frame_rule="4k+1"),
-    SplitParams(rows=2, cols=2, chunk_frames=0, frame_rule="17k"),  # temporal padding
+    SplitParams(tile_mode="target size", target_width=64, target_height=64, chunk_frames=13, frame_rule="4n+1"),
+    SplitParams(rows=2, cols=2, chunk_frames=0, frame_rule="17n"),  # temporal padding
     SplitParams(rows=16, cols=16, multiple_of=1),
 ]
 
@@ -35,7 +35,7 @@ def test_identity_round_trip(params, blend, curve, width):
 
 def test_identity_single_image_rgba():
     video = random_video(1, 33, 47, c=4)
-    _, _, out = split_and_merge(video, SplitParams(rows=2, cols=2, frame_rule="8k+1"))
+    _, _, out = split_and_merge(video, SplitParams(rows=2, cols=2, frame_rule="8n+1"))
     assert torch.allclose(out, video, atol=1e-5)
 
 

@@ -13,9 +13,9 @@ PLAN_VERSION = 1
 # n >= min_valid and (n - offset) % step == 0.
 FRAME_RULES = {
     "none": (1, 0, 1),
-    "4k+1": (4, 1, 1),
-    "8k+1": (8, 1, 1),
-    "17k": (17, 0, 17),
+    "4n+1": (4, 1, 1),
+    "8n+1": (8, 1, 1),
+    "17n": (17, 0, 17),
 }
 
 TILE_MODES = ("grid", "target size")
