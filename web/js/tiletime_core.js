@@ -9,6 +9,10 @@ export const PLAN_WIDGETS = [
   "overlap", "multiple_of", "chunk_frames", "chunk_overlap", "frame_rule",
 ];
 
+// Old frame rule names, kept so workflows saved before the 4k+1/8k+1/17k ->
+// 4n+1/8n+1/17n rename still load. Mirrors tiletime/plan.py.
+export const LEGACY_FRAME_RULES = { "4k+1": "4n+1", "8k+1": "8n+1", "17k": "17n" };
+
 export function chain(obj, name, fn) {
   const orig = obj[name];
   obj[name] = function (...args) {
@@ -161,6 +165,37 @@ export async function refreshPanel(node, { fetchPreview, signature }) {
   if (stale) text = "Source changed, press Measure (numbers below are from the last measurement)\n" + text;
   if (seq === node.kmRefreshSeq) setPanel(node, text);
   return text;
+}
+
+// Migrates widget values saved by an older version of this pack that used
+// the old frame rule names (4k+1/8k+1/17k). Returns true if anything changed.
+export function migrateLegacyWidgetValues(node) {
+  let changed = false;
+
+  const frameRuleWidget = widget(node, "frame_rule");
+  if (frameRuleWidget && LEGACY_FRAME_RULES[frameRuleWidget.value]) {
+    frameRuleWidget.value = LEGACY_FRAME_RULES[frameRuleWidget.value];
+    changed = true;
+  }
+
+  const presetWidget = widget(node, "preset");
+  if (presetWidget && typeof presetWidget.value === "string" && presetWidget.value !== CUSTOM) {
+    let migrated = presetWidget.value;
+    for (const [legacy, current] of Object.entries(LEGACY_FRAME_RULES)) {
+      const needle = `, ${legacy},`;
+      if (migrated.includes(needle)) {
+        migrated = migrated.replace(needle, `, ${current},`);
+        break;
+      }
+    }
+    if (migrated !== presetWidget.value) {
+      const options = presetWidget.options?.values;
+      presetWidget.value = options && !options.includes(migrated) ? CUSTOM : migrated;
+      changed = true;
+    }
+  }
+
+  return changed;
 }
 
 // Wires the preset widget and every PLAN_WIDGETS widget on `node`: selecting

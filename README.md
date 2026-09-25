@@ -13,7 +13,7 @@ Two ComfyUI nodes that cut a video into overlapping **tiles** and overlapping **
 - `overlap_mode` / `overlap`: percent of the tile or pixels, capped below half a tile.
 - `multiple_of`: tile width and height are rounded to this.
 - `chunk_frames` (0 = off) / `chunk_overlap`: temporal chunks. Every chunk has the same length; the last one moves back in time rather than being padded.
-- `frame_rule`: `4k+1` (Wan), `8k+1` (LTX), `17k` (MiniMax H3). Chunk length is rounded down to a valid count; a clip that fits in one chunk is padded with its last frame and Merge removes the padding.
+- `frame_rule`: `4n+1` (Wan), `8n+1` (LTX), `17n` (MiniMax H3). Chunk length is rounded down to a valid count; a clip that fits in one chunk is padded with its last frame and Merge removes the padding.
 - **Info panel** at the bottom shows source size, grid, tile size, chunks, item count and output size, and updates as you change widgets. Press **Measure source** to read the real input: it runs only the nodes that feed Split, from any loader.
 
 **KM Tile & Time Merge** (`KM/TileTime`)
@@ -27,10 +27,10 @@ Two ComfyUI nodes that cut a video into overlapping **tiles** and overlapping **
 
 | Preset | Multiple | Frame rule | Tile | Chunk / overlap |
 |---|---|---|---|---|
-| Wan 2.1/2.2 VACE | 16 | 4k+1 | 1280x720 | 81 / 8 |
-| Wan 2.2 TI2V-5B | 32 | 4k+1 | 1280x704 | 121 / 8 |
-| LTX-2 / 2.3 / 2.5 | 32 | 8k+1 | 1280x704 | 121 / 16 |
-| MiniMax H3 | 32 | 17k | 1280x704 | 136 / 17 |
+| Wan 2.1/2.2 VACE | 16 | 4n+1 | 1280x720 | 81 / 8 |
+| Wan 2.2 TI2V-5B | 32 | 4n+1 | 1280x704 | 121 / 8 |
+| LTX-2 / 2.3 / 2.5 | 32 | 8n+1 | 1280x704 | 121 / 16 |
+| MiniMax H3 | 32 | 17n | 1280x704 | 136 / 17 |
 
 ## Typical workflow
 

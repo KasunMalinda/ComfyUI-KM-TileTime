@@ -13,10 +13,20 @@ PLAN_VERSION = 1
 # n >= min_valid and (n - offset) % step == 0.
 FRAME_RULES = {
     "none": (1, 0, 1),
-    "4k+1": (4, 1, 1),
-    "8k+1": (8, 1, 1),
-    "17k": (17, 0, 17),
+    "4n+1": (4, 1, 1),
+    "8n+1": (8, 1, 1),
+    "17n": (17, 0, 17),
 }
+
+# Old frame rule names, kept so workflows saved before the 4k+1/8k+1/17k ->
+# 4n+1/8n+1/17n rename still load.
+LEGACY_FRAME_RULES = {"4k+1": "4n+1", "8k+1": "8n+1", "17k": "17n"}
+
+
+def canonical_frame_rule(name):
+    """Map a legacy frame_rule name to its current name; other names unchanged."""
+    return LEGACY_FRAME_RULES.get(name, name)
+
 
 TILE_MODES = ("grid", "target size")
 OVERLAP_MODES = ("percent", "pixels")
@@ -95,6 +105,9 @@ class SplitParams:
     frame_rule: str = "none"
 
     def __post_init__(self):
+        canonical = canonical_frame_rule(self.frame_rule)
+        if canonical != self.frame_rule:
+            object.__setattr__(self, "frame_rule", canonical)
         if self.tile_mode not in TILE_MODES:
             raise ValueError(f"tile_mode must be one of {TILE_MODES}, got {self.tile_mode!r}")
         if self.overlap_mode not in OVERLAP_MODES:

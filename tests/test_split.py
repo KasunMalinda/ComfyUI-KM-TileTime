@@ -29,7 +29,7 @@ def test_items_are_views_without_padding():
 
 def test_padding_replicates_edges():
     video = random_video(70, 50, 40)
-    params = SplitParams(rows=1, cols=1, multiple_of=16, chunk_frames=81, frame_rule="4k+1")
+    params = SplitParams(rows=1, cols=1, multiple_of=16, chunk_frames=81, frame_rule="4n+1")
     _, (item,) = split(video, params)
     assert item.shape == (73, 64, 48, 3)
     assert torch.equal(item[72], item[69]) and torch.equal(item[69, :50, :40], video[69])  # repeated last frame

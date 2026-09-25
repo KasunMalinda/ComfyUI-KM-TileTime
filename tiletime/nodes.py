@@ -1,8 +1,17 @@
 """ComfyUI node classes for KM Tile & Time (widgets, list flags, UI payload)."""
 
 from .merge import BLENDS, CURVES, OUTPUT_SIZES, merge_items
-from .plan import FRAME_RULES, MULTIPLES, OVERLAP_MODES, TILE_MODES, SplitParams, describe, make_plan
-from .presets import CUSTOM, preset_labels, preset_widget_values
+from .plan import (
+    FRAME_RULES,
+    MULTIPLES,
+    OVERLAP_MODES,
+    TILE_MODES,
+    SplitParams,
+    canonical_frame_rule,
+    describe,
+    make_plan,
+)
+from .presets import CUSTOM, canonical_preset_label, preset_labels, preset_widget_values
 from .split import split_items
 
 CATEGORY = "KM/TileTime"
@@ -47,6 +56,17 @@ class KMTileTimeSplit:
                 "frame_rule": (list(FRAME_RULES), {"default": "none"}),
             }
         }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, preset, frame_rule):
+        # Naming these two inputs makes ComfyUI skip its own combo check for
+        # them and call this instead, so workflows saved with the old frame
+        # rule names (4k+1, 8k+1, 17k) still validate.
+        if canonical_frame_rule(frame_rule) not in FRAME_RULES:
+            return f"frame_rule has an invalid value: {frame_rule!r}, expected one of: {', '.join(FRAME_RULES)}"
+        if canonical_preset_label(preset) not in preset_labels():
+            return f"preset has an invalid value: {preset!r}, expected one of: {', '.join(preset_labels())}"
+        return True
 
     def split(self, images, preset, **widgets):
         params = SplitParams.from_dict(widgets)
