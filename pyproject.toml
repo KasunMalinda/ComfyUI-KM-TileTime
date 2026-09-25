@@ -1,0 +1,24 @@
+[project]
+name = "ComfyUI-KM-TileTime"
+description = "Split a video into overlapping tiles and frame chunks, process every piece with one branch, and merge back seamlessly. Tiled video upscale and restyle with presets for Wan, LTX and MiniMax H3."
+version = "1.0.0"
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/KasunMalinda/ComfyUI-KM-TileTime"
+#  Used by Comfy Registry https://registry.comfy.org
+Documentation = "https://github.com/KasunMalinda/ComfyUI-KM-TileTime/wiki"
+"Bug Tracker" = "https://github.com/KasunMalinda/ComfyUI-KM-TileTime/issues"
+
+[tool.comfy]
+PublisherId = "kasunmalinda"
+DisplayName = "ComfyUI-KM-TileTime"
+Icon = ""
+includes = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
