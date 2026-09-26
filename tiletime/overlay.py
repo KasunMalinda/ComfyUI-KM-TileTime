@@ -69,7 +69,7 @@ def _coverage(spans, length):
 def _font(px):
     try:
         return ImageFont.load_default(size=px)
-    except TypeError:  # Pillow older than 10.1 has no sized default font
+    except (TypeError, OSError, ImportError):  # Pillow older than 10.1, or no FreeType support
         return ImageFont.load_default()
 
 
