@@ -41,10 +41,6 @@ Load video -> **KM Tile & Time Split** -> your per-piece branch (upscale, VACE r
 - Everything stays in system RAM as tensors: a long 4K clip needs a lot of RAM.
 - Tiles, chunks and item order: tiles are numbered row by row from the top-left, and items are tile-major (all chunks of tile 0, then tile 1...).
 
-## Development
-
-Run the Python tests with `python -m pytest -q` and the frontend tests with `node --test "tests/js/*.test.mjs"`.
-
 ## License
 
 MIT
