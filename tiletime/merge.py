@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
-from .color import gain_offset, lowpass_stats, solve_neighbours
+from .color import MAX_FRAMES, gain_offset, lowpass_stats, solve_neighbours
 from .plan import PLAN_VERSION, TilePlan
 
 log = logging.getLogger("KM-TileTime")
@@ -192,13 +192,27 @@ def piece_size(items, plan, output_size):
     return int(items[0].shape[1]), int(items[0].shape[2])
 
 
-def _prepare(item, plan, lay, r, c):
-    """One item as it lands on the canvas: trimmed frames, float32 CPU, resized ("source"), fitted."""
-    piece = item[: plan.chunk_len].to(device="cpu", dtype=torch.float32)
+def _prepare(item, plan, lay, r, c, frames=None):
+    """One item as it lands on the canvas: trimmed frames, float32 CPU, resized ("source"), fitted.
+
+    frames: optional item frame indices to keep (taken before any copy or resize).
+    """
+    piece = item[: plan.chunk_len]
+    if frames is not None:
+        piece = piece[frames.to(piece.device)]
+    piece = piece.to(device="cpu", dtype=torch.float32)
     if tuple(piece.shape[1:3]) != (lay.piece_h, lay.piece_w):
         piece = _resize(piece, lay.piece_h, lay.piece_w)  # "source" mode only
     piece = _fit(piece, 1, lay.y_crops[r], lay.y_fills[r])
     return _fit(piece, 2, lay.x_crops[c], lay.x_fills[c])
+
+
+def _sample_frames(t0, t1, max_frames=MAX_FRAMES):
+    """At most max_frames evenly spaced frame indices in [t0, t1), as lowpass_stats samples them."""
+    n = t1 - t0
+    if n > max_frames:
+        return t0 + torch.linspace(0, n - 1, max_frames).round().long()
+    return torch.arange(t0, t1)
 
 
 def _shared(a, b):
@@ -211,6 +225,7 @@ def _neighbour_pairs(items, plan, lay):
 
     Neighbours are the tile to the right and below in the same chunk, and the
     same tile in the next chunk. Returns (p, q, mean_p, std_p, mean_q, std_q).
+    Only the sampled frames of the shared range are prepared.
     """
     pairs = []
     for i in range(plan.n_items):
@@ -227,8 +242,8 @@ def _neighbour_pairs(items, plan, lay):
             stats = []
             for n, (rr, cc, kk) in ((i, (r, c, k)), (j, (r2, c2, k2))):
                 t0, y0, x0 = lay.t_spans[kk][0], lay.y_spans[rr][0], lay.x_spans[cc][0]
-                piece = _prepare(items[n], plan, lay, rr, cc)
-                region = piece[ts[0] - t0:ts[1] - t0, ys[0] - y0:ys[1] - y0, xs[0] - x0:xs[1] - x0]
+                piece = _prepare(items[n], plan, lay, rr, cc, _sample_frames(ts[0] - t0, ts[1] - t0))
+                region = piece[:, ys[0] - y0:ys[1] - y0, xs[0] - x0:xs[1] - x0]
                 stats.append(lowpass_stats(region))
             (mp, sp), (mq, sq) = stats
             pairs.append((i, j, mp, sp, mq, sq))
@@ -252,9 +267,10 @@ def _color_corrections(items, plan, lay, color_match):
             )
         k = min(k, len(plan.src_stats[0][0]))
         corrections = []
+        frames = _sample_frames(0, plan.chunk_len)
         for i, item in enumerate(items):
             r, c, _ = plan.item_coords(i)
-            mean, std = lowpass_stats(_prepare(item, plan, lay, r, c))
+            mean, std = lowpass_stats(_prepare(item, plan, lay, r, c, frames))
             ref_mean, ref_std = (torch.tensor(v[:k], dtype=torch.float64) for v in plan.src_stats[i])
             corrections.append(gain_offset(mean[:k], std[:k], ref_mean, ref_std))
     else:
