@@ -1,4 +1,4 @@
-// KM Tile & Time Split: ComfyUI glue (extension registration, app/api wiring).
+// KM Tile & Time Split and Merge: ComfyUI glue (extension registration, app/api wiring).
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import {
@@ -9,10 +9,12 @@ import {
   migrateLegacyWidgetValues,
   nodeErrorLines,
   refreshPanel,
+  syncOverlayWidget,
   wirePresets,
 } from "./tiletime_core.js";
 
 const NODE_TYPE = "KMTileTimeSplit";
+const MERGE_TYPE = "KMTileTimeMerge";
 const REFRESH_DELAY_MS = 150;
 
 function setPanel(node, text) {
@@ -60,6 +62,43 @@ async function measure(node) {
   }
 }
 
+// Merge: overlay_on mirrors whether the overlay output is linked. ComfyUI caches
+// Merge by its inputs, so this flag is what makes a newly connected overlay run
+// again instead of returning the cached placeholder. The widget is hidden.
+function hideWidget(node, name) {
+  const w = node.widgets?.find((x) => x.name === name);
+  if (!w) return;
+  w.hidden = true;
+  w.computeSize = () => [0, -4];
+}
+
+function syncOverlay(node) {
+  try {
+    if (syncOverlayWidget(node)) node.setDirtyCanvas?.(true, true);
+  } catch {
+    // fail soft
+  }
+}
+
+function registerMerge(nodeType) {
+  chain(nodeType.prototype, "onNodeCreated", function () {
+    try {
+      hideWidget(this, "overlay_on");
+    } catch {
+      // fail soft
+    }
+    syncOverlay(this);
+  });
+
+  chain(nodeType.prototype, "onConfigure", function () {
+    syncOverlay(this);
+  });
+
+  chain(nodeType.prototype, "onConnectionsChange", function () {
+    syncOverlay(this);
+  });
+}
+
 app.registerExtension({
   name: "km.tiletime.split",
 
@@ -91,6 +130,10 @@ app.registerExtension({
   },
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
+    if (nodeData.name === MERGE_TYPE) {
+      registerMerge(nodeType);
+      return;
+    }
     if (nodeData.name !== NODE_TYPE) return;
     const spec = nodeData.input?.required?.preset;
     const presets = (Array.isArray(spec) && spec[1]?.km_presets) || {};

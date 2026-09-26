@@ -123,18 +123,28 @@ class KMTileTimeMerge:
                                "source: return each tile to the source colors (upscaling).",
                 }),
             },
+            "optional": {
+                "overlay_on": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Set automatically by the UI when the overlay output is connected.",
+                }),
+            },
             "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"},
         }
 
     def merge(self, tiles, tile_plan, blend, feather_curve, feather_width, output_size, color_match,
-              prompt=None, unique_id=None):
+              overlay_on=None, prompt=None, unique_id=None):
         plan = tile_plan[0] if tile_plan else None
         image = merge_items(
             tiles, plan, blend[0], feather_curve[0], feather_width[0], output_size[0], color_match[0]
         )
         # The overlay is drawn only when something uses it, so it costs nothing otherwise
-        # and can never end up on the main output.
-        if overlay_connected(prompt[0] if prompt else None, unique_id[0] if unique_id else None):
+        # and can never end up on the main output. The UI sets overlay_on while the output is
+        # linked, which also changes the cache key so a later connection is not served the
+        # cached placeholder; the prompt check covers API prompts sent without the UI.
+        if (overlay_on and overlay_on[0]) or overlay_connected(
+            prompt[0] if prompt else None, unique_id[0] if unique_id else None
+        ):
             lay = output_layout(plan, *piece_size(tiles, plan, output_size[0]))
             overlay = draw_overlay(image, plan, lay)
         else:
