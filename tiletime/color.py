@@ -57,15 +57,15 @@ def solve_neighbours(n_items, pairs, lam=NEIGHBOUR_LAMBDA):
     pairs: (p, q, mean_p, std_p, mean_q, std_q) with float64 [C] statistics of
     the region items p and q share. Solves, per channel, the regularised least
     squares problems
-        sum (g_p + log s_p - g_q - log s_q)^2 + lam * P * sum g^2   (a = exp(g))
-        sum (a_p m_p + b_p - a_q m_q - b_q)^2 + lam * P * sum b^2
+        sum (g_p + log s_p - g_q - log s_q)^2 + lam * sum g^2   (a = exp(g))
+        sum (a_p m_p + b_p - a_q m_q - b_q)^2 + lam * sum b^2
     through their normal equations (a graph Laplacian plus a ridge term).
     Returns (a, b) as float64 [n_items, C], or (None, None) when there are no pairs.
     """
     if not pairs:
         return None, None
     channels = pairs[0][2].shape[0]
-    reg = lam * len(pairs)
+    reg = lam
     lap = torch.zeros(n_items, n_items, dtype=torch.float64)
     for p, q, *_ in pairs:
         lap[p, p] += 1
