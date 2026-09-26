@@ -7,3 +7,6 @@ node.zip
 
 # Design notes stay local
 docs/
+
+# Tests stay local (the repo is the custom node folder)
+tests/
