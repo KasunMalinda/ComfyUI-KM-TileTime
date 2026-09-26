@@ -1,6 +1,10 @@
 """ComfyUI node classes for KM Tile & Time (widgets, list flags, UI payload)."""
 
-from .merge import BLENDS, CURVES, OUTPUT_SIZES, merge_items
+from dataclasses import replace
+
+from .color import item_stats
+from .merge import BLENDS, COLOR_MATCHES, CURVES, OUTPUT_SIZES, merge_items, output_layout, piece_size
+from .overlay import draw_overlay, overlay_connected, placeholder
 from .plan import (
     FRAME_RULES,
     MULTIPLES,
@@ -12,7 +16,7 @@ from .plan import (
     make_plan,
 )
 from .presets import CUSTOM, canonical_preset_label, preset_labels, preset_widget_values
-from .split import split_items
+from .split import normalize_mask, ones_mask_items, split_items, split_mask_items
 
 CATEGORY = "KM/TileTime"
 
@@ -22,9 +26,9 @@ class KMTileTimeSplit:
 
     CATEGORY = CATEGORY
     FUNCTION = "split"
-    RETURN_TYPES = ("IMAGE", "KM_TILE_PLAN", "STRING")
-    RETURN_NAMES = ("tiles", "tile_plan", "info")
-    OUTPUT_IS_LIST = (True, False, False)
+    RETURN_TYPES = ("IMAGE", "MASK", "KM_TILE_PLAN", "STRING")
+    RETURN_NAMES = ("image_tiles", "mask_tiles", "tile_plan", "info")
+    OUTPUT_IS_LIST = (True, True, False, False)
     # Output node so the info panel's Measure button can target it with a
     # partial run (only Split and the nodes feeding it execute).
     OUTPUT_NODE = True
@@ -54,7 +58,12 @@ class KMTileTimeSplit:
                 }),
                 "chunk_overlap": ("INT", {"default": 8, "min": 0, "max": 1000}),
                 "frame_rule": (list(FRAME_RULES), {"default": "none"}),
-            }
+            },
+            "optional": {
+                "mask": ("MASK", {
+                    "tooltip": "Cut with the same plan as images. Without a mask, mask_tiles are all white.",
+                }),
+            },
         }
 
     @classmethod
@@ -68,15 +77,20 @@ class KMTileTimeSplit:
             return f"preset has an invalid value: {preset!r}, expected one of: {', '.join(preset_labels())}"
         return True
 
-    def split(self, images, preset, **widgets):
+    def split(self, images, preset, mask=None, **widgets):
         params = SplitParams.from_dict(widgets)
         n, h, w, c = (int(v) for v in images.shape)
         plan = make_plan(n, h, w, c, params)
         info = describe(plan)
         items = split_items(images, plan)
+        if mask is None:
+            mask_items = ones_mask_items(plan)
+        else:
+            mask_items = split_mask_items(normalize_mask(mask, n, h, w), plan)
+        plan = replace(plan, src_stats=item_stats(items))
         return {
             "ui": {"km_source": [[n, h, w, c]], "km_info": [info]},
-            "result": (items, plan, info),
+            "result": (items, mask_items, plan, info),
         }
 
 
@@ -85,8 +99,8 @@ class KMTileTimeMerge:
 
     CATEGORY = CATEGORY
     FUNCTION = "merge"
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("images", "overlay")
     INPUT_IS_LIST = True
     SEARCH_ALIASES = ["merge tiles", "stitch", "untile", "km"]
 
@@ -103,13 +117,39 @@ class KMTileTimeMerge:
                     "tooltip": "Percent of each overlap covered by the blend ramp.",
                 }),
                 "output_size": (list(OUTPUT_SIZES), {"default": "scaled"}),
-            }
+                "color_match": (list(COLOR_MATCHES), {
+                    "default": "off",
+                    "tooltip": "neighbours: make tiles agree in their overlaps (keeps the model's look). "
+                               "source: return each tile to the source colors (upscaling).",
+                }),
+            },
+            "optional": {
+                "overlay_on": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "Set automatically by the UI when the overlay output is connected. API prompts that use the overlay should set it to true.",
+                }),
+            },
+            "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"},
         }
 
-    def merge(self, tiles, tile_plan, blend, feather_curve, feather_width, output_size):
+    def merge(self, tiles, tile_plan, blend, feather_curve, feather_width, output_size, color_match,
+              overlay_on=None, prompt=None, unique_id=None):
         plan = tile_plan[0] if tile_plan else None
-        image = merge_items(tiles, plan, blend[0], feather_curve[0], feather_width[0], output_size[0])
-        return (image,)
+        image = merge_items(
+            tiles, plan, blend[0], feather_curve[0], feather_width[0], output_size[0], color_match[0]
+        )
+        # The overlay is drawn only when something uses it, so it costs nothing otherwise
+        # and can never end up on the main output. The UI sets overlay_on while the output is
+        # linked, which also changes the cache key so a later connection is not served the
+        # cached placeholder; the prompt check covers API prompts sent without the UI.
+        if (overlay_on and overlay_on[0]) or overlay_connected(
+            prompt[0] if prompt else None, unique_id[0] if unique_id else None
+        ):
+            lay = output_layout(plan, *piece_size(tiles, plan, output_size[0]))
+            overlay = draw_overlay(image, plan, lay)
+        else:
+            overlay = placeholder()
+        return (image, overlay)
 
 
 NODE_CLASS_MAPPINGS = {

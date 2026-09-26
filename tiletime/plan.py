@@ -7,7 +7,7 @@ can use it directly.
 import math
 from dataclasses import dataclass, fields
 
-PLAN_VERSION = 1
+PLAN_VERSION = 2
 
 # name -> (step, offset, min_valid). A frame count n is valid when
 # n >= min_valid and (n - offset) % step == 0.
@@ -256,6 +256,7 @@ class TilePlan:
     chunk_starts: tuple
     frame_rule: str = "none"
     notes: tuple = ()
+    src_stats: tuple = ()  # per item ((means...), (stds...)) of the source region, set by Split
     order: str = "tile-major"
     version: int = PLAN_VERSION
 

@@ -1,4 +1,4 @@
-// KM Tile & Time Split: pure logic (no ComfyUI app/api imports).
+// KM Tile & Time Split and Merge: pure logic (no ComfyUI app/api imports).
 // Side-effect free at import time: ComfyUI's frontend loads every .js file in
 // WEB_DIRECTORY as an extension module, so this file must only define exports.
 
@@ -262,4 +262,21 @@ export function handleMeasureEvent(nodes, type, detail) {
     return { node, clearId: true, refresh: true };
   }
   return null;
+}
+
+// Merge: true when the overlay output (slot 1) has at least one link.
+export function overlayLinked(node) {
+  return node?.outputs?.[1]?.links?.length > 0;
+}
+
+// Merge: copies overlayLinked(node) into the hidden overlay_on widget, so the
+// flag is part of the node's inputs (and its cache key). Returns true if the
+// value changed.
+export function syncOverlayWidget(node) {
+  const w = widget(node, "overlay_on");
+  if (!w) return false;
+  const linked = overlayLinked(node);
+  if (w.value === linked) return false;
+  w.value = linked;
+  return true;
 }
