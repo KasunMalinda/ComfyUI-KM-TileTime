@@ -31,3 +31,40 @@ def split_items(images, plan):
             for t in plan.chunk_starts:
                 items.append(src[t:t + plan.chunk_len, y:y + plan.tile_h, x:x + plan.tile_w, :])
     return items
+
+
+def normalize_mask(mask, n_frames, height, width):
+    """Bring a MASK to [n_frames, height, width]; a single frame is broadcast without copying."""
+    m = mask.unsqueeze(0) if mask.ndim == 2 else mask
+    if m.ndim != 3:
+        raise ValueError(f"mask must be [frames, height, width], got shape {tuple(mask.shape)}")
+    if tuple(m.shape[1:]) != (height, width):
+        raise ValueError(
+            f"mask is {m.shape[2]}x{m.shape[1]} but images are {width}x{height}: "
+            "the mask must match the image size"
+        )
+    if m.shape[0] == 1 and n_frames > 1:
+        return m.expand(n_frames, height, width)
+    if m.shape[0] != n_frames:
+        raise ValueError(
+            f"mask has {m.shape[0]} frames but images have {n_frames}: "
+            f"use a mask with {n_frames} frames or a single frame"
+        )
+    return m
+
+
+def split_mask_items(mask, plan):
+    """Cut a [N, H, W] mask exactly like the images (same tiles, chunks and padding)."""
+    src = pad_source(mask.unsqueeze(-1), plan)[..., 0]
+    items = []
+    for y in plan.ys:
+        for x in plan.xs:
+            for t in plan.chunk_starts:
+                items.append(src[t:t + plan.chunk_len, y:y + plan.tile_h, x:x + plan.tile_w])
+    return items
+
+
+def ones_mask_items(plan):
+    """All-ones masks for every item, as views of a single value (no per-item memory)."""
+    one = torch.ones(1, 1, 1).expand(plan.chunk_len, plan.tile_h, plan.tile_w)
+    return [one] * plan.n_items
