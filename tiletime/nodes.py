@@ -126,7 +126,7 @@ class KMTileTimeMerge:
             "optional": {
                 "overlay_on": ("BOOLEAN", {
                     "default": False,
-                    "tooltip": "Set automatically by the UI when the overlay output is connected.",
+                    "tooltip": "Set automatically by the UI when the overlay output is connected. API prompts that use the overlay should set it to true.",
                 }),
             },
             "hidden": {"prompt": "PROMPT", "unique_id": "UNIQUE_ID"},

@@ -31,7 +31,7 @@ Two ComfyUI nodes that cut a video into overlapping **tiles** and overlapping **
   - `neighbours`: makes tiles agree in their overlaps while keeping the model's overall look. Use it for restyles and anything that changes color on purpose.
   - `source`: returns each tile to the source's colors and contrast, keeping the detail the model added. Use it for upscaling and denoising.
 - Any returned tile size works (2x, 1.5x...), as long as every piece comes back at the same size. In `scaled` mode tiles are placed without resampling, so their pixels reach the output unchanged apart from blending (and color match, when on).
-- `overlay`: a debug view of the merged video with each tile outlined in its own color, tile numbers, lightened overlap bands and a chunk label per frame. It is only drawn when something is connected to it, including when you connect it after a previous run (the UI tracks the connection), and it never touches the main `images` output.
+- `overlay`: a debug view of the merged video with each tile outlined in its own color, tile numbers, lightened overlap bands and a chunk label per frame. It is only drawn when something is connected to it, including when you connect it after a previous run (the UI tracks the connection), and it never touches the main `images` output. When sending prompts straight to the API, set Merge's `overlay_on` input to `true` in prompts that use the overlay: ComfyUI may otherwise reuse a cached Merge result from a prompt that did not.
 
 ## Presets
 
