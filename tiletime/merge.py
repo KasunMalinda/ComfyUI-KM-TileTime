@@ -236,22 +236,33 @@ def _neighbour_pairs(items, plan, lay):
 
 
 def _color_corrections(items, plan, lay, color_match):
-    """Per-item (gain, offset) float32 [C] tensors, or None when no correction applies."""
+    """Per-item (gain, offset) float32 [k] tensors, or None when no correction applies.
+
+    Only the first k channels are corrected: k = min(3, item channels), and in
+    "source" mode also at most the source channel count. Channels from k on
+    (alpha, for example) are left alone.
+    """
     if color_match == "off":
         return None
+    k = min(3, int(items[0].shape[-1]))
     if color_match == "source":
         if len(plan.src_stats) != plan.n_items:
             raise ValueError(
                 "color_match 'source' needs a tile_plan from KM Tile & Time Split v2: re-run Split"
             )
+        k = min(k, len(plan.src_stats[0][0]))
         corrections = []
         for i, item in enumerate(items):
             r, c, _ = plan.item_coords(i)
             mean, std = lowpass_stats(_prepare(item, plan, lay, r, c))
-            ref_mean, ref_std = (torch.tensor(v, dtype=torch.float64) for v in plan.src_stats[i])
-            corrections.append(gain_offset(mean, std, ref_mean, ref_std))
+            ref_mean, ref_std = (torch.tensor(v[:k], dtype=torch.float64) for v in plan.src_stats[i])
+            corrections.append(gain_offset(mean[:k], std[:k], ref_mean, ref_std))
     else:
-        a, b = solve_neighbours(plan.n_items, _neighbour_pairs(items, plan, lay))
+        pairs = [
+            (p, q, mp[:k], sp[:k], mq[:k], sq[:k])
+            for p, q, mp, sp, mq, sq in _neighbour_pairs(items, plan, lay)
+        ]
+        a, b = solve_neighbours(plan.n_items, pairs)
         if a is None:
             return None
         corrections = list(zip(a, b))
@@ -296,8 +307,10 @@ def merge_items(items, plan, blend="feather", curve="smoothstep", width_pct=100,
         (y0, y1), (x0, x1), (t0, t1) = lay.y_spans[r], lay.x_spans[c], lay.t_spans[k]
         piece = _prepare(item, plan, lay, r, c)
         if corrections is not None:
+            # A new tensor: _prepare can return a view of the caller's item.
             gain, offset = corrections[i]
-            piece = piece * gain + offset
+            n_ch = gain.shape[0]
+            piece = torch.cat([piece[..., :n_ch] * gain + offset, piece[..., n_ch:]], dim=-1)
         w = (
             wt[k, t0:t1].view(-1, 1, 1, 1)
             * wy[r, y0:y1].view(1, -1, 1, 1)
