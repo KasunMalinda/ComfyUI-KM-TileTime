@@ -102,7 +102,9 @@ def draw_overlay(image, plan, lay):
     line, font_px = sizes_for_width(width)
 
     band = (_coverage(lay.y_spans, height) >= 2)[:, None] | (_coverage(lay.x_spans, width) >= 2)[None, :]
-    out[:, band, :ch] = out[:, band, :ch] * (1 - TINT) + TINT
+    for f in range(frames):  # one frame at a time keeps the indexing temporaries small
+        fr = out[f]
+        fr[band, :ch] = fr[band, :ch] * (1 - TINT) + TINT
 
     colors = tile_colors(plan.n_tiles)
     for r, (y0, y1) in enumerate(lay.y_spans):
