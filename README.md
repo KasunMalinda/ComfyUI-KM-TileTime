@@ -49,6 +49,7 @@ Load video -> **KM Tile & Time Split** -> your per-piece branch (upscale, VACE r
 ## Notes
 
 - Everything stays in system RAM as tensors: a long 4K clip needs a lot of RAM.
+- Split and Merge use every CPU core while they run, even when `OMP_NUM_THREADS` limits torch to fewer threads, and restore the previous setting afterwards.
 - Tiles, chunks and item order: tiles are numbered row by row from the top-left, and items are tile-major (all chunks of tile 0, then tile 1...).
 - Workflows saved with version 1 of Split need their Split to Merge links reconnected: Split's outputs gained `mask_tiles` in second place.
 
