@@ -17,6 +17,7 @@ from .plan import (
 )
 from .presets import CUSTOM, canonical_preset_label, preset_labels, preset_widget_values
 from .split import normalize_mask, ones_mask_items, split_items, split_mask_items
+from .threads import all_cpu_threads
 
 CATEGORY = "KM/TileTime"
 
@@ -78,6 +79,10 @@ class KMTileTimeSplit:
         return True
 
     def split(self, images, preset, mask=None, **widgets):
+        with all_cpu_threads():
+            return self._split(images, mask, widgets)
+
+    def _split(self, images, mask, widgets):
         params = SplitParams.from_dict(widgets)
         n, h, w, c = (int(v) for v in images.shape)
         plan = make_plan(n, h, w, c, params)
@@ -134,6 +139,12 @@ class KMTileTimeMerge:
 
     def merge(self, tiles, tile_plan, blend, feather_curve, feather_width, output_size, color_match,
               overlay_on=None, prompt=None, unique_id=None):
+        with all_cpu_threads():
+            return self._merge(tiles, tile_plan, blend, feather_curve, feather_width, output_size, color_match,
+                               overlay_on, prompt, unique_id)
+
+    def _merge(self, tiles, tile_plan, blend, feather_curve, feather_width, output_size, color_match,
+               overlay_on, prompt, unique_id):
         plan = tile_plan[0] if tile_plan else None
         image = merge_items(
             tiles, plan, blend[0], feather_curve[0], feather_width[0], output_size[0], color_match[0]
